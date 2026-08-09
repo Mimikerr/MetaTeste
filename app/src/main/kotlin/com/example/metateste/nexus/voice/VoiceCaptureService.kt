@@ -11,7 +11,6 @@ import android.os.Build
 import android.os.IBinder
 import androidx.core.app.NotificationCompat
 import java.io.ByteArrayOutputStream
-import kotlin.math.sqrt
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -21,14 +20,15 @@ import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 
 /**
- * Continuously records the microphone and uses simple energy-based voice activity detection
- * (VAD) to segment utterances. Transcription happens on the host (see `:host`'s VoskVoiceTranscriber),
- * not here — the Quest's on-device SpeechRecognizer isn't reachable by third-party apps on Horizon OS.
+ * Push-to-talk audio capture: [ACTION_START_TALK]/[ACTION_STOP_TALK] (sent by MainActivity while
+ * the Back button is held) bracket exactly what gets recorded and sent. Transcription happens on
+ * the host (see `:host`'s VoskVoiceTranscriber) — the Quest's on-device SpeechRecognizer isn't
+ * reachable by third-party apps on Horizon OS.
  */
 class VoiceCaptureService : Service() {
 
     private val serviceScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
-    private var captureJob: Job? = null
+    private var recordingJob: Job? = null
     private var audioRecord: AudioRecord? = null
 
     override fun onBind(intent: Intent?): IBinder? = null
@@ -36,19 +36,25 @@ class VoiceCaptureService : Service() {
     override fun onCreate() {
         super.onCreate()
         startForeground(NOTIFICATION_ID, buildNotification())
-        captureJob = serviceScope.launch { captureLoop() }
+    }
+
+    override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
+        when (intent?.action) {
+            ACTION_START_TALK -> startRecording()
+            ACTION_STOP_TALK -> stopRecording()
+        }
+        return START_STICKY
     }
 
     override fun onDestroy() {
-        captureJob?.cancel()
-        audioRecord?.stop()
-        audioRecord?.release()
-        audioRecord = null
+        stopRecording()
         serviceScope.cancel()
         super.onDestroy()
     }
 
-    private fun captureLoop() {
+    private fun startRecording() {
+        if (recordingJob?.isActive == true) return
+
         val minBufferSize = AudioRecord.getMinBufferSize(
             SAMPLE_RATE_HZ,
             AudioFormat.CHANNEL_IN_MONO,
@@ -73,43 +79,35 @@ class VoiceCaptureService : Service() {
         }
         audioRecord = record
         record.startRecording()
+        VoiceRepository.publishListening()
 
-        val chunk = ShortArray(CHUNK_SAMPLES)
-        val utterance = ByteArrayOutputStream()
-        var inSpeech = false
-        var silenceMs = 0L
-        var speechMs = 0L
+        recordingJob = serviceScope.launch {
+            val chunk = ShortArray(CHUNK_SAMPLES)
+            val utterance = ByteArrayOutputStream()
+            while (isActive) {
+                val read = record.read(chunk, 0, chunk.size)
+                if (read > 0) appendPcm(utterance, chunk, read)
+            }
+            // Only reached after stopRecording() has already called record.stop(), unblocking the
+            // read() above — safe to release here since this coroutine is the sole reader.
+            record.release()
 
-        while (serviceScope.isActive) {
-            val read = record.read(chunk, 0, chunk.size)
-            if (read <= 0) continue
-
-            val chunkMs = (read * 1000L) / SAMPLE_RATE_HZ
-            val amplitude = rms(chunk, read)
-
-            if (amplitude > SPEECH_RMS_THRESHOLD) {
-                if (!inSpeech) {
-                    inSpeech = true
-                    utterance.reset()
-                    speechMs = 0
-                    VoiceRepository.publishListening()
-                }
-                silenceMs = 0
-                speechMs += chunkMs
-                appendPcm(utterance, chunk, read)
-            } else if (inSpeech) {
-                silenceMs += chunkMs
-                appendPcm(utterance, chunk, read)
-
-                if (silenceMs >= TRAILING_SILENCE_MS || speechMs >= MAX_UTTERANCE_MS) {
-                    inSpeech = false
-                    if (speechMs >= MIN_SPEECH_MS) {
-                        VoiceRepository.publishFinalAudio(utterance.toByteArray(), SAMPLE_RATE_HZ)
-                    }
-                    utterance.reset()
-                }
+            val bytes = utterance.toByteArray()
+            val durationMs = (bytes.size / 2) * 1000L / SAMPLE_RATE_HZ
+            if (durationMs >= MIN_SPEECH_MS) {
+                VoiceRepository.publishFinalAudio(bytes, SAMPLE_RATE_HZ)
+            } else {
+                VoiceRepository.publishError("Gravação muito curta — segure o botão Voltar por mais tempo")
             }
         }
+    }
+
+    private fun stopRecording() {
+        val job = recordingJob ?: return
+        recordingJob = null
+        job.cancel()
+        audioRecord?.stop()
+        audioRecord = null
     }
 
     private fun appendPcm(out: ByteArrayOutputStream, samples: ShortArray, length: Int) {
@@ -118,15 +116,6 @@ class VoiceCaptureService : Service() {
             out.write(sample and 0xFF)
             out.write((sample shr 8) and 0xFF)
         }
-    }
-
-    private fun rms(samples: ShortArray, length: Int): Double {
-        var sumSquares = 0.0
-        for (i in 0 until length) {
-            val s = samples[i].toDouble()
-            sumSquares += s * s
-        }
-        return sqrt(sumSquares / length)
     }
 
     private fun buildNotification(): android.app.Notification {
@@ -139,29 +128,21 @@ class VoiceCaptureService : Service() {
             getSystemService(NotificationManager::class.java).createNotificationChannel(channel)
         }
         return NotificationCompat.Builder(this, CHANNEL_ID)
-            .setContentTitle("Nexus Command ouvindo…")
+            .setContentTitle("Nexus Command pronto — segure Voltar para falar")
             .setSmallIcon(android.R.drawable.ic_btn_speak_now)
             .setOngoing(true)
             .build()
     }
 
     companion object {
+        const val ACTION_START_TALK = "com.example.metateste.nexus.voice.action.START_TALK"
+        const val ACTION_STOP_TALK = "com.example.metateste.nexus.voice.action.STOP_TALK"
+
         private const val NOTIFICATION_ID = 1001
         private const val CHANNEL_ID = "nexus_voice_capture"
 
         private const val SAMPLE_RATE_HZ = 16000
         private const val CHUNK_SAMPLES = 800 // 50ms at 16kHz
-
-        /** Tuned empirically: ambient noise sits well below this, normal speech well above it. */
-        private const val SPEECH_RMS_THRESHOLD = 1200.0
-
-        /**
-         * How long a dip below the threshold has to last before an utterance is considered over.
-         * Needs to comfortably outlast a natural pause between words (not just between sentences),
-         * or multi-word phrases get sliced into separate VoiceAudio messages mid-sentence.
-         */
-        private const val TRAILING_SILENCE_MS = 1800L
         private const val MIN_SPEECH_MS = 300L
-        private const val MAX_UTTERANCE_MS = 15_000L
     }
 }

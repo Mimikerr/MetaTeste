@@ -4,6 +4,7 @@ import android.Manifest
 import android.content.Intent
 import android.os.Build
 import android.os.Bundle
+import android.view.KeyEvent
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
@@ -19,6 +20,23 @@ import com.example.metateste.nexus.ui.NexusScreen
 import com.example.metateste.nexus.voice.VoiceCaptureService
 
 class MainActivity : ComponentActivity() {
+
+    /**
+     * The Back button is the only Touch controller input Horizon OS reliably forwards to a 2D
+     * panel app as a real KeyEvent — other buttons (grip, face buttons) are consumed by the
+     * system shell or routed only as pointer/hover events. Repurposed here as push-to-talk.
+     */
+    override fun dispatchKeyEvent(event: KeyEvent): Boolean {
+        if (event.keyCode == KeyEvent.KEYCODE_BACK && event.repeatCount == 0) {
+            when (event.action) {
+                KeyEvent.ACTION_DOWN -> sendTalkAction(VoiceCaptureService.ACTION_START_TALK)
+                KeyEvent.ACTION_UP -> sendTalkAction(VoiceCaptureService.ACTION_STOP_TALK)
+            }
+            return true
+        }
+        return super.dispatchKeyEvent(event)
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContent {
@@ -49,5 +67,9 @@ class MainActivity : ComponentActivity() {
 
     private fun startVoiceCaptureService() {
         ContextCompat.startForegroundService(this, Intent(this, VoiceCaptureService::class.java))
+    }
+
+    private fun sendTalkAction(action: String) {
+        startService(Intent(this, VoiceCaptureService::class.java).setAction(action))
     }
 }

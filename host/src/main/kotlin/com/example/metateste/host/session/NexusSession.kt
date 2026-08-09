@@ -76,7 +76,7 @@ class NexusSession(
                 )
             }
 
-            is VoiceAudio -> handleVoiceAudio(message)?.let { reply(it) }
+            is VoiceAudio -> reply(handleVoiceAudio(message))
 
             is Heartbeat -> reply(
                 HeartbeatAck(
@@ -95,8 +95,7 @@ class NexusSession(
         session.outgoing.send(Frame.Text(message.encode()))
     }
 
-    /** Returns null when the utterance should be silently dropped (no ack, no overlay/haptic on the Quest). */
-    private suspend fun handleVoiceAudio(message: VoiceAudio): CommandAck? {
+    private suspend fun handleVoiceAudio(message: VoiceAudio): CommandAck {
         val transcriber = voiceTranscriber
         if (transcriber == null) {
             return CommandAck(
@@ -132,35 +131,14 @@ class NexusSession(
             )
         }
 
-        val command = extractCommandAfterWakeWord(text)
-        if (command == null) {
-            logger.info("ignoring utterance without wake word '{}': '{}'", WAKE_WORD, text)
-            return null
-        }
-
-        val injectResult = withContext(Dispatchers.IO) { terminalInjector.inject(command) }
+        val injectResult = withContext(Dispatchers.IO) { terminalInjector.inject(text) }
         return CommandAck(
             messageId = UUID.randomUUID().toString(),
             timestamp = System.currentTimeMillis(),
             correlatesTo = message.messageId,
             status = if (injectResult.isSuccess) CommandStatus.SUCCESS else CommandStatus.FAILURE,
             detail = injectResult.exceptionOrNull()?.message,
-            recognizedText = command,
+            recognizedText = text,
         )
-    }
-
-    /**
-     * Looks for the wake word anywhere in the utterance (VAD may catch a little noise before it)
-     * and returns whatever follows it, trimmed of leading punctuation. Null means "not activated".
-     */
-    private fun extractCommandAfterWakeWord(text: String): String? {
-        val index = text.indexOf(WAKE_WORD, ignoreCase = true)
-        if (index < 0) return null
-        val after = text.substring(index + WAKE_WORD.length).trim(' ', ',', '.', '-', ':', ';')
-        return after.ifBlank { null }
-    }
-
-    companion object {
-        private const val WAKE_WORD = "computador"
     }
 }
