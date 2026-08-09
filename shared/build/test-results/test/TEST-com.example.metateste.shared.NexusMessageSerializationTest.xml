@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="com.example.metateste.shared.NexusMessageSerializationTest" tests="10" skipped="0" failures="0" errors="0" timestamp="2026-08-09T00:11:35.550Z" hostname="MEUPC" time="0.084">
+  <properties/>
+  <testcase name="command_ack success round-trips with recognized text" classname="com.example.metateste.shared.NexusMessageSerializationTest" time="0.073"/>
+  <testcase name="hello_ack round-trips" classname="com.example.metateste.shared.NexusMessageSerializationTest" time="0.001"/>
+  <testcase name="heartbeat round-trips" classname="com.example.metateste.shared.NexusMessageSerializationTest" time="0.001"/>
+  <testcase name="voice_command round-trips with accented text" classname="com.example.metateste.shared.NexusMessageSerializationTest" time="0.001"/>
+  <testcase name="decodes polymorphically via the type discriminator" classname="com.example.metateste.shared.NexusMessageSerializationTest" time="0.001"/>
+  <testcase name="voice_audio round-trips" classname="com.example.metateste.shared.NexusMessageSerializationTest" time="0.0"/>
+  <testcase name="command_ack success round-trips" classname="com.example.metateste.shared.NexusMessageSerializationTest" time="0.001"/>
+  <testcase name="hello round-trips" classname="com.example.metateste.shared.NexusMessageSerializationTest" time="0.0"/>
+  <testcase name="heartbeat_ack round-trips" classname="com.example.metateste.shared.NexusMessageSerializationTest" time="0.001"/>
+  <testcase name="command_ack failure round-trips with detail" classname="com.example.metateste.shared.NexusMessageSerializationTest" time="0.0"/>
+  <system-out><![CDATA[]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>
