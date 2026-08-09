@@ -1,0 +1,62 @@
+[
+    {
+        "id": "207cb211-6f53-4362-93aa-3fcb37947eaa",
+        "trigger": "abrir navegador",
+        "steps": [
+            {
+                "type": "launch_app",
+                "executablePath": "chrome"
+            }
+        ]
+    },
+    {
+        "id": "3b392e9f-180b-43df-88d3-9fc012413076",
+        "trigger": "Modo desenvolvimento",
+        "steps": [
+            {
+                "type": "launch_app",
+                "executablePath": "\"C:\\Program Files\\Android\\Android Studio\\bin\\studio64.exe\""
+            },
+            {
+                "type": "delay",
+                "milliseconds": 2000
+            },
+            {
+                "type": "launch_app",
+                "executablePath": "cmd.exe"
+            },
+            {
+                "type": "delay",
+                "milliseconds": 500
+            },
+            {
+                "type": "type_text",
+                "text": "cd D:\\MetaProjetos"
+            },
+            {
+                "type": "delay",
+                "milliseconds": 500
+            },
+            {
+                "type": "key_shortcut",
+                "keys": [
+                    "ENTER"
+                ]
+            },
+            {
+                "type": "type_text",
+                "text": "claude"
+            },
+            {
+                "type": "delay",
+                "milliseconds": 500
+            },
+            {
+                "type": "key_shortcut",
+                "keys": [
+                    "ENTER"
+                ]
+            }
+        ]
+    }
+]
