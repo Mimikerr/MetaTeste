@@ -1,6 +1,9 @@
 package com.example.metateste.host.session
 
 import com.example.metateste.host.automation.TerminalInjector
+import com.example.metateste.host.commands.CommandMappingStore
+import com.example.metateste.host.commands.MacroExecutor
+import com.example.metateste.host.commands.toAckDetail
 import com.example.metateste.host.voice.VoiceTranscriber
 import com.example.metateste.shared.CommandAck
 import com.example.metateste.shared.CommandStatus
@@ -31,6 +34,8 @@ class NexusSession(
     private val session: DefaultWebSocketServerSession,
     private val terminalInjector: TerminalInjector,
     private val voiceTranscriber: VoiceTranscriber?,
+    private val commandMappingStore: CommandMappingStore,
+    private val macroExecutor: MacroExecutor,
 ) {
 
     private val logger = LoggerFactory.getLogger(NexusSession::class.java)
@@ -131,13 +136,22 @@ class NexusSession(
             )
         }
 
-        val injectResult = withContext(Dispatchers.IO) { terminalInjector.inject(text) }
+        val matched = commandMappingStore.findMatch(text)
+        val (status, detail) = if (matched != null) {
+            val macroResult = macroExecutor.execute(matched.steps)
+            val status = if (macroResult.isSuccess) CommandStatus.SUCCESS else CommandStatus.FAILURE
+            status to macroResult.toAckDetail()
+        } else {
+            val result = withContext(Dispatchers.IO) { terminalInjector.inject(text) }
+            val status = if (result.isSuccess) CommandStatus.SUCCESS else CommandStatus.FAILURE
+            status to result.exceptionOrNull()?.message
+        }
         return CommandAck(
             messageId = UUID.randomUUID().toString(),
             timestamp = System.currentTimeMillis(),
             correlatesTo = message.messageId,
-            status = if (injectResult.isSuccess) CommandStatus.SUCCESS else CommandStatus.FAILURE,
-            detail = injectResult.exceptionOrNull()?.message,
+            status = status,
+            detail = detail,
             recognizedText = text,
         )
     }

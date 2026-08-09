@@ -13,6 +13,9 @@ application {
         "-Dsun.jnu.encoding=UTF-8",
         "-Dstdout.encoding=UTF-8",
         "-Dstderr.encoding=UTF-8",
+        // Ktor's CIO client engine fails outbound HTTPS calls with "Cannot assign requested
+        // address" on this Windows setup when it attempts IPv6 first; forcing IPv4 avoids it.
+        "-Djava.net.preferIPv4Stack=true",
     )
 }
 
@@ -22,10 +25,15 @@ dependencies {
     implementation(libs.ktor.server.core)
     implementation(libs.ktor.server.cio)
     implementation(libs.ktor.server.websockets)
+    implementation(libs.ktor.server.content.negotiation)
+    implementation(libs.ktor.serialization.kotlinx.json)
+    implementation(libs.ktor.client.core)
+    implementation(libs.ktor.client.okhttp)
     implementation(libs.kotlinx.coroutines.core)
     implementation(libs.jna)
     implementation(libs.jna.platform)
     implementation(libs.vosk)
     runtimeOnly(libs.logback.classic)
     testImplementation(libs.junit)
+    testImplementation(libs.kotlinx.coroutines.test)
 }

@@ -1,7 +1,0 @@
-<?xml version="1.0" encoding="UTF-8"?>
-<testsuite name="com.example.metateste.host.voice.VoskVoiceTranscriberTest" tests="1" skipped="0" failures="0" errors="0" timestamp="2026-08-09T00:25:42.232Z" hostname="MEUPC" time="2.761">
-  <properties/>
-  <testcase name="transcribes a synthesized pt-BR sample without mangling accented characters" classname="com.example.metateste.host.voice.VoskVoiceTranscriberTest" time="2.757"/>
-  <system-out><![CDATA[]]></system-out>
-  <system-err><![CDATA[]]></system-err>
-</testsuite>

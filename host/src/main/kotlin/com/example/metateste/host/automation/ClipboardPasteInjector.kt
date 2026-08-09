@@ -1,6 +1,5 @@
 package com.example.metateste.host.automation
 
-import java.awt.Robot
 import java.awt.Toolkit
 import java.awt.datatransfer.Clipboard
 import java.awt.datatransfer.DataFlavor
@@ -19,10 +18,10 @@ import org.slf4j.LoggerFactory
  */
 class ClipboardPasteInjector(
     private val guard: ForegroundWindowGuard? = null,
+    private val keyboard: KeyboardActuator = KeyboardActuator(),
 ) : TerminalInjector {
 
     private val logger = LoggerFactory.getLogger(ClipboardPasteInjector::class.java)
-    private val robot = Robot().apply { autoDelay = 15 }
     private val clipboard: Clipboard = Toolkit.getDefaultToolkit().systemClipboard
 
     override fun inject(text: String): Result<Unit> = runCatching {
@@ -34,9 +33,9 @@ class ClipboardPasteInjector(
         val previousClipboard = readClipboardTextOrNull()
         try {
             clipboard.setContents(StringSelection(text), null)
-            pressChord(KeyEvent.VK_CONTROL, KeyEvent.VK_V)
+            keyboard.pressChord(KeyEvent.VK_CONTROL, KeyEvent.VK_V)
             Thread.sleep(80)
-            pressKey(KeyEvent.VK_ENTER)
+            keyboard.pressKey(KeyEvent.VK_ENTER)
         } finally {
             Thread.sleep(50)
             previousClipboard?.let { clipboard.setContents(StringSelection(it), null) }
@@ -45,14 +44,4 @@ class ClipboardPasteInjector(
 
     private fun readClipboardTextOrNull(): String? =
         runCatching { clipboard.getData(DataFlavor.stringFlavor) as? String }.getOrNull()
-
-    private fun pressChord(vararg keyCodes: Int) {
-        keyCodes.forEach(robot::keyPress)
-        keyCodes.reversed().forEach(robot::keyRelease)
-    }
-
-    private fun pressKey(keyCode: Int) {
-        robot.keyPress(keyCode)
-        robot.keyRelease(keyCode)
-    }
 }
