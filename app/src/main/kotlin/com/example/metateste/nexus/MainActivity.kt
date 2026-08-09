@@ -16,7 +16,9 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.Modifier
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.viewmodel.compose.viewModel
-import com.example.metateste.nexus.ui.NexusScreen
+import com.example.metateste.nexus.ui.NexusViewModel
+import com.example.metateste.nexus.ui.navigation.NexusNavHost
+import com.example.metateste.nexus.ui.theme.NexusTheme
 import com.example.metateste.nexus.voice.VoiceCaptureService
 
 class MainActivity : ComponentActivity() {
@@ -40,8 +42,9 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContent {
-            MaterialTheme {
-                Surface(modifier = Modifier.fillMaxSize()) {
+            NexusTheme {
+                Surface(modifier = Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
+                    val nexusViewModel = viewModel<NexusViewModel>()
                     val permissionLauncher = rememberLauncherForActivityResult(
                         ActivityResultContracts.RequestMultiplePermissions(),
                     ) { results ->
@@ -52,7 +55,7 @@ class MainActivity : ComponentActivity() {
                     LaunchedEffect(Unit) {
                         permissionLauncher.launch(requiredPermissions())
                     }
-                    NexusScreen(viewModel = viewModel())
+                    NexusNavHost(viewModel = nexusViewModel)
                 }
             }
         }

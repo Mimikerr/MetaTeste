@@ -91,4 +91,8 @@ class NexusViewModel(application: Application) : AndroidViewModel(application) {
         hostAddressStore.port = port
         _uiState.update { it.copy(hostAddress = host, hostPort = port) }
     }
+
+    fun dismissAck() {
+        _uiState.update { it.copy(lastAckId = null, lastAckStatus = null, lastAckDetail = null) }
+    }
 }
