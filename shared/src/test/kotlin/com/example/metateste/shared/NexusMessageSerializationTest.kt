@@ -96,4 +96,59 @@ class NexusMessageSerializationTest {
         val encoded = VoiceCommand(messageId = "m8", timestamp = 8L, text = "teste").encode()
         assertEquals(true, encoded.contains("\"type\":\"voice_command\""))
     }
+
+    @Test
+    fun `assistant_reply round-trips`() {
+        roundTrip(
+            AssistantReply(
+                messageId = "m9",
+                timestamp = 9L,
+                correlatesTo = "m3",
+                text = "São 14h32 em Brasília.",
+            )
+        )
+    }
+
+    @Test
+    fun `assistant_reply awaiting confirmation round-trips`() {
+        roundTrip(
+            AssistantReply(
+                messageId = "m9b",
+                timestamp = 95L,
+                correlatesTo = "m3",
+                text = "Quer que eu rode 'git status'?",
+                awaitingConfirmation = true,
+            )
+        )
+    }
+
+    @Test
+    fun `tts_audio round-trips`() {
+        roundTrip(
+            TtsAudio(
+                messageId = "m10",
+                timestamp = 10L,
+                correlatesTo = "m9",
+                audioBase64 = "AAECAwQFBgc=",
+                sampleRateHz = 24000,
+            )
+        )
+    }
+
+    @Test
+    fun `client_settings round-trips`() {
+        roundTrip(
+            ClientSettings(
+                messageId = "m11",
+                timestamp = 11L,
+                requireCommandConfirmation = false,
+            )
+        )
+    }
+
+    @Test
+    fun `client_settings defaults to requiring confirmation`() {
+        val decoded = "{\"type\":\"client_settings\",\"messageId\":\"m12\",\"timestamp\":12}".decodeNexusMessage()
+        assertEquals(ClientSettings(messageId = "m12", timestamp = 12L, requireCommandConfirmation = true), decoded)
+    }
 }

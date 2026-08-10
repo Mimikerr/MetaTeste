@@ -1,5 +1,7 @@
 package com.example.metateste.nexus.network
 
+import com.example.metateste.shared.Heartbeat
+import com.example.metateste.shared.HeartbeatAck
 import com.example.metateste.shared.Hello
 import com.example.metateste.shared.NexusMessage
 import com.example.metateste.shared.decodeNexusMessage
@@ -12,6 +14,7 @@ import io.ktor.client.plugins.websocket.webSocket
 import io.ktor.websocket.Frame
 import io.ktor.websocket.readText
 import java.util.UUID
+import java.util.concurrent.ConcurrentHashMap
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.delay
@@ -22,6 +25,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.isActive
+import kotlinx.coroutines.launch
 import kotlin.time.Duration.Companion.seconds
 
 /**
@@ -40,6 +44,12 @@ class NexusWebSocketClient(
 
     private val _incoming = MutableSharedFlow<NexusMessage>(extraBufferCapacity = 16)
     val incoming: SharedFlow<NexusMessage> = _incoming.asSharedFlow()
+
+    /** Round-trip time of the last answered heartbeat, in ms; null while disconnected or before the first reply. */
+    private val _latencyMs = MutableStateFlow<Long?>(null)
+    val latencyMs: StateFlow<Long?> = _latencyMs.asStateFlow()
+
+    private val pendingHeartbeats = ConcurrentHashMap<String, Long>()
 
     @Volatile
     private var activeSession: DefaultClientWebSocketSession? = null
@@ -62,11 +72,31 @@ class NexusWebSocketClient(
                         appVersion = "0.1.0",
                     )
                     send(Frame.Text(hello.encode()))
-                    for (frame in incoming) {
-                        if (frame is Frame.Text) {
-                            val message = runCatching { frame.readText().decodeNexusMessage() }.getOrNull()
-                            if (message != null) _incoming.emit(message)
+
+                    val heartbeatJob = launch {
+                        while (isActive) {
+                            delay(HEARTBEAT_INTERVAL)
+                            val heartbeatId = UUID.randomUUID().toString()
+                            pendingHeartbeats[heartbeatId] = System.currentTimeMillis()
+                            send(Frame.Text(Heartbeat(messageId = heartbeatId, timestamp = System.currentTimeMillis()).encode()))
                         }
+                    }
+
+                    try {
+                        for (frame in incoming) {
+                            if (frame is Frame.Text) {
+                                val message = runCatching { frame.readText().decodeNexusMessage() }.getOrNull()
+                                if (message is HeartbeatAck) {
+                                    pendingHeartbeats.remove(message.correlatesTo)?.let { sentAt ->
+                                        _latencyMs.value = System.currentTimeMillis() - sentAt
+                                    }
+                                } else if (message != null) {
+                                    _incoming.emit(message)
+                                }
+                            }
+                        }
+                    } finally {
+                        heartbeatJob.cancel()
                     }
                 }
             } catch (e: CancellationException) {
@@ -76,6 +106,8 @@ class NexusWebSocketClient(
             } finally {
                 activeSession = null
                 _connectionState.value = ConnectionState.DISCONNECTED
+                pendingHeartbeats.clear()
+                _latencyMs.value = null
             }
             delay(backoff)
             _connectionState.value = ConnectionState.RECONNECTING
@@ -86,5 +118,9 @@ class NexusWebSocketClient(
     suspend fun send(message: NexusMessage) {
         val session = activeSession ?: return
         runCatching { session.send(Frame.Text(message.encode())) }
+    }
+
+    private companion object {
+        val HEARTBEAT_INTERVAL = 5.seconds
     }
 }

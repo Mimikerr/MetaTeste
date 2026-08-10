@@ -53,3 +53,36 @@ export function updateCommand(id: string, req: UpsertCommandRequest): Promise<Vo
 export function deleteCommand(id: string): Promise<void> {
   return fetch(`/api/commands/${id}`, { method: "DELETE" }).then((r) => parseJsonOrThrow(r));
 }
+
+export type ServiceState = "STOPPED" | "STARTING" | "RUNNING" | "STOPPING" | "FAILED";
+
+export interface ServiceStatus {
+  id: string;
+  name: string;
+  state: ServiceState;
+  pid: number | null;
+  lastError: string | null;
+  recentLog: string[];
+}
+
+export function listServices(): Promise<ServiceStatus[]> {
+  return fetch("/api/services").then((r) => parseJsonOrThrow(r));
+}
+
+export function startService(id: string): Promise<ServiceStatus> {
+  return fetch(`/api/services/${id}/start`, { method: "POST" }).then((r) => parseJsonOrThrow(r));
+}
+
+export function stopService(id: string): Promise<ServiceStatus> {
+  return fetch(`/api/services/${id}/stop`, { method: "POST" }).then((r) => parseJsonOrThrow(r));
+}
+
+// Mirrors the Kotlin sealed interface in host/chat/ChatEvent.kt — "type" literals must match
+// the @SerialName annotations there exactly.
+export type ChatEvent =
+  | { type: "user_message"; timestamp: number; text: string }
+  | { type: "tool_call"; timestamp: number; tool: string; input: Record<string, string> }
+  | { type: "tool_result"; timestamp: number; tool: string; output: string }
+  | { type: "assistant_message"; timestamp: number; text: string; awaitingConfirmation: boolean }
+  | { type: "command_result"; timestamp: number; success: boolean; detail: string | null }
+  | { type: "system_note"; timestamp: number; text: string };

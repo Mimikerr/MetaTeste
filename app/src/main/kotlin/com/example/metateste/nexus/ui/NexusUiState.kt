@@ -14,4 +14,11 @@ data class NexusUiState(
     val lastAckStatus: CommandStatus? = null,
     val lastAckDetail: String? = null,
     val voiceError: String? = null,
+    val autoSpeakEnabled: Boolean = false,
+    val assistantReplyText: String? = null,
+    val awaitingConfirmation: Boolean = false,
+    val isSpeaking: Boolean = false,
+    val requireCommandConfirmation: Boolean = true,
+    val latencyMs: Long? = null,
+    val hudLog: List<HudLogEntry> = emptyList(),
 )

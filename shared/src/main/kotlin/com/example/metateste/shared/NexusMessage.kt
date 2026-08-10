@@ -80,3 +80,45 @@ data class HeartbeatAck(
     override val timestamp: Long,
     val correlatesTo: String,
 ) : NexusMessage
+
+/**
+ * Host -> Quest conversational text: an answer from the LLM brain, a confirmation question
+ * before running a command, or a cancellation notice. Distinct from [CommandAck], which only
+ * carries the pass/fail result of an action.
+ */
+@Serializable
+@SerialName("assistant_reply")
+data class AssistantReply(
+    override val messageId: String,
+    override val timestamp: Long,
+    val correlatesTo: String,
+    val text: String,
+    val awaitingConfirmation: Boolean = false,
+) : NexusMessage
+
+/**
+ * Host -> Quest TTS audio for an [AssistantReply], mono PCM16LE, one message per full reply
+ * (not chunked/streamed).
+ */
+@Serializable
+@SerialName("tts_audio")
+data class TtsAudio(
+    override val messageId: String,
+    override val timestamp: Long,
+    val correlatesTo: String,
+    val audioBase64: String,
+    val sampleRateHz: Int = 24000,
+) : NexusMessage
+
+/**
+ * Quest -> host client preferences, sent right after [Hello] and again whenever the user
+ * changes a setting. [requireCommandConfirmation] defaults to true so a session that hasn't
+ * received one yet never runs commands unconfirmed.
+ */
+@Serializable
+@SerialName("client_settings")
+data class ClientSettings(
+    override val messageId: String,
+    override val timestamp: Long,
+    val requireCommandConfirmation: Boolean = true,
+) : NexusMessage

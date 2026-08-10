@@ -36,4 +36,5 @@ dependencies {
     runtimeOnly(libs.logback.classic)
     testImplementation(libs.junit)
     testImplementation(libs.kotlinx.coroutines.test)
+    testImplementation(libs.ktor.client.mock)
 }

@@ -1,8 +1,10 @@
 import { useEffect, useState } from "react";
 import type { CommandStep, VoiceCommandMapping } from "./api";
 import { createCommand, deleteCommand, listCommands, updateCommand } from "./api";
+import { ChatPanel } from "./ChatPanel";
 import { CommandEditor } from "./CommandEditor";
 import { CommandList } from "./CommandList";
+import { ServicesPanel } from "./ServicesPanel";
 
 type EditorState = { mode: "closed" } | { mode: "creating" } | { mode: "editing"; command: VoiceCommandMapping };
 
@@ -41,7 +43,13 @@ export default function App() {
 
   return (
     <main>
-      <h1>Nexus Command — Comandos de voz</h1>
+      <h1>Nexus Command</h1>
+
+      <ServicesPanel />
+
+      <ChatPanel />
+
+      <h2>Comandos de voz</h2>
       <p className="hint">
         Quando a frase reconhecida contiver o gatilho (sem diferenciar maiúsculas/minúsculas), os passos configurados
         rodam em vez de digitar o texto no terminal focado.
